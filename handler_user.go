@@ -75,3 +75,24 @@ func handlerReset(s *state, cmd command) error {
 	return nil
 
 }
+
+func handlerGetUsers(s *state, cmd command) error {
+	if len(cmd.Args) != 0 {
+		return fmt.Errorf("usage: %v", cmd.Name)
+	}
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("couldn't get users: %w", err)
+	}
+
+	for i := range users {
+		if users[i].Name == s.cfg.CurrentUserName {
+			fmt.Println("*", users[i].Name, "(current)")
+		} else {
+			fmt.Println("*", users[i].Name)
+		}
+	}
+
+	return nil
+
+}
