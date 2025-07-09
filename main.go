@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"os"
@@ -10,15 +9,6 @@ import (
 	"github.com/inscrutabletaco/gator/internal/database"
 	_ "github.com/lib/pq"
 )
-
-type state struct {
-	db  *database.Queries
-	cfg *config.Config
-}
-
-func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
-	return nil, nil
-}
 
 func main() {
 	cfg, err := config.Read()
@@ -45,6 +35,7 @@ func main() {
 	cmds.register("register", handlerRegister)
 	cmds.register("reset", handlerReset)
 	cmds.register("users", handlerGetUsers)
+	cmds.register("agg", handlerAgg)
 
 	if len(os.Args) < 2 {
 		log.Fatal("Usage: cli <command> [args...]")
