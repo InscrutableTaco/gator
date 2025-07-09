@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"os"
@@ -13,6 +14,10 @@ import (
 type state struct {
 	db  *database.Queries
 	cfg *config.Config
+}
+
+func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
+	return nil, nil
 }
 
 func main() {
