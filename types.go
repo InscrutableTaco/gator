@@ -5,6 +5,15 @@ import (
 	"github.com/inscrutabletaco/gator/internal/database"
 )
 
+type command struct {
+	Name string
+	Args []string
+}
+
+type commands struct {
+	registeredCommands map[string]func(*state, command) error
+}
+
 type state struct {
 	db  *database.Queries
 	cfg *config.Config

@@ -7,11 +7,16 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/inscrutabletaco/gator/internal/database"
 )
 
 const RSS_URL = "https://www.wagslane.dev/index.xml"
 
 func handlerAgg(s *state, cmd command) error {
+
 	feed, err := fetchFeed(context.Background(), RSS_URL)
 	if err != nil {
 		return err
@@ -57,4 +62,94 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 	}
 
 	return &feed, nil
+}
+
+func handlerAddFeed(s *state, cmd command) error {
+
+	if len(cmd.Args) != 2 {
+		return fmt.Errorf("usage: addfeed <name> <url>")
+	}
+
+	ctx := context.Background()
+
+	currentUser, err := s.db.GetUser(ctx, s.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	feed, err := s.db.CreateFeed(ctx, database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		Name:      cmd.Args[0],
+		Url:       cmd.Args[1],
+		UserID:    currentUser.ID,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Print the feed details
+	fmt.Printf("Feed created: %+v\n", feed)
+	return nil
+}
+
+func handlerFeeds(s *state, cmd command) error {
+
+	if len(cmd.Args) != 0 {
+		return fmt.Errorf("usage: feeds")
+	}
+
+	ctx := context.Background()
+
+	results, err := s.db.GetFeedsByUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%-20s %-55s %-12s\n", "Feed Name", "Feed URL", "Owner")
+
+	for i := 0; i < len(results); i++ {
+		row := results[i]
+		userName := row.Name_2.String
+		if !row.Name_2.Valid {
+			userName = "(unknown)"
+		}
+		fmt.Printf("%-20s %-55s %-12s\n", row.Name, row.Url, userName)
+	}
+
+	return nil
+}
+
+func handlerFollow(s *state, cmd command) error {
+
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: follow <url>")
+	}
+
+	ctx := context.Background()
+
+	currentUser, err := s.db.GetUser(ctx, s.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	feed, err := s.db.GetFeedByUrl(ctx, cmd.Args[0])
+	if err != nil {
+		return err
+	}
+
+	var params database.CreateFeedFollowParams
+	params.UserID = currentUser.ID
+	params.FeedID = feed.ID
+
+	result, err := s.db.CreateFeedFollow(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Created feed follow: %v for %v", result.FeedName, result.UserName)
+
+	return nil
 }
