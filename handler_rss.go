@@ -26,15 +26,25 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 }
 
 func handlerAgg(s *state, cmd command) error {
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: agg <time_between_reqs>")
+	}
 
-	feed, err := fetchFeed(context.Background(), RSS_URL)
+	timeBetweenRequests, err := time.ParseDuration(cmd.Args[0])
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%+v\n", feed)
+	fmt.Println("Collecting feeds every", timeBetweenRequests)
 
-	return nil
+	ticker := time.NewTicker(timeBetweenRequests)
+	for ; ; <-ticker.C {
+		err = scrapeFeeds(s)
+		if err != nil {
+			fmt.Println("Encountered an error scraping feeds:", err)
+		}
+	}
+
 }
 
 func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
@@ -176,6 +186,60 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 
 	for _, row := range feedFollows {
 		fmt.Println(row.FeedName)
+	}
+
+	return nil
+}
+
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: unfollow <url>")
+	}
+
+	ctx := context.Background()
+
+	feed, err := s.db.GetFeedByUrl(ctx, cmd.Args[0])
+	if err != nil {
+		return err
+	}
+
+	var params database.DeleteFeedFollowParams
+	params.UserID = user.ID
+	params.FeedID = feed.ID
+
+	err = s.db.DeleteFeedFollow(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Feed successfully unfollowed!")
+
+	return nil
+}
+
+func scrapeFeeds(s *state) error {
+
+	ctx := context.Background()
+
+	nextFeed, err := s.db.GetNextFeedToFetch(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to identify next feed to fetch: %w", err)
+	}
+
+	err = s.db.MarkFeedFetched(ctx, nextFeed.ID)
+	if err != nil {
+		return fmt.Errorf("failed to mark as fetched feed %v: %w", nextFeed.Name, err)
+	}
+
+	rss, err := fetchFeed(ctx, nextFeed.Url)
+	if err != nil {
+		return fmt.Errorf("failed to fetch feed %v from %v: %w", nextFeed.Name, nextFeed.Url, err)
+	}
+
+	fmt.Printf("New items from feed %v\n", nextFeed.Name)
+
+	for _, item := range rss.Channel.Item {
+		fmt.Printf("   %v\n", item.Title)
 	}
 
 	return nil
