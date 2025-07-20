@@ -76,7 +76,7 @@ func (q *Queries) DeleteFeedFollow(ctx context.Context, arg DeleteFeedFollowPara
 }
 
 const getFeedFollowsForUser = `-- name: GetFeedFollowsForUser :many
-SELECT users.name AS follower, feeds.name AS feed_name
+SELECT users.name AS follower, feeds.name AS feed_name, feeds.url AS feed_url
 FROM feed_follows
 INNER JOIN users ON users.id = feed_follows.user_id
 INNER JOIN feeds ON feeds.id = feed_follows.feed_id
@@ -86,6 +86,7 @@ WHERE feed_follows.user_id = $1
 type GetFeedFollowsForUserRow struct {
 	Follower string
 	FeedName string
+	FeedUrl  string
 }
 
 func (q *Queries) GetFeedFollowsForUser(ctx context.Context, userID uuid.UUID) ([]GetFeedFollowsForUserRow, error) {
@@ -97,7 +98,7 @@ func (q *Queries) GetFeedFollowsForUser(ctx context.Context, userID uuid.UUID) (
 	var items []GetFeedFollowsForUserRow
 	for rows.Next() {
 		var i GetFeedFollowsForUserRow
-		if err := rows.Scan(&i.Follower, &i.FeedName); err != nil {
+		if err := rows.Scan(&i.Follower, &i.FeedName, &i.FeedUrl); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

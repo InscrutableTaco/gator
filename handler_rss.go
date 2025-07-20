@@ -213,7 +213,7 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 	}
 
 	for _, row := range feedFollows {
-		fmt.Println(row.FeedName)
+		fmt.Printf("%-20s %-55s\n", row.FeedName, row.FeedUrl)
 	}
 
 	return nil
@@ -240,7 +240,7 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 		return err
 	}
 
-	fmt.Printf("Feed successfully unfollowed!")
+	fmt.Println("Feed successfully unfollowed!")
 
 	return nil
 }
