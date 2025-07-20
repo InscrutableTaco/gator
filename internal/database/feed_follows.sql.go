@@ -78,7 +78,7 @@ func (q *Queries) DeleteFeedFollow(ctx context.Context, arg DeleteFeedFollowPara
 const getFeedFollowsForUser = `-- name: GetFeedFollowsForUser :many
 SELECT users.name AS follower, feeds.name AS feed_name
 FROM feed_follows
-INNER JOIN users on users.id = feed_follows.user_id
+INNER JOIN users ON users.id = feed_follows.user_id
 INNER JOIN feeds ON feeds.id = feed_follows.feed_id
 WHERE feed_follows.user_id = $1
 `

@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +18,30 @@ import (
 )
 
 const RSS_URL = "https://www.wagslane.dev/index.xml"
+
+func parseTime(dateStr string) (time.Time, error) {
+	if dateStr == "" {
+		return time.Time{}, nil // Return zero time for empty strings
+	}
+
+	// Common RSS date formats to try
+	formats := []string{
+		time.RFC1123,                // "Mon, 02 Jan 2006 15:04:05 MST"
+		time.RFC1123Z,               // "Mon, 02 Jan 2006 15:04:05 -0700"
+		time.RFC822,                 // "02 Jan 06 15:04 MST"
+		time.RFC822Z,                // "02 Jan 06 15:04 -0700"
+		"2006-01-02T15:04:05Z07:00", // ISO 8601
+		"2006-01-02 15:04:05",       // Simple format
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
+}
 
 func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
 	return func(s *state, cmd command) error {
@@ -236,11 +264,87 @@ func scrapeFeeds(s *state) error {
 		return fmt.Errorf("failed to fetch feed %v from %v: %w", nextFeed.Name, nextFeed.Url, err)
 	}
 
-	fmt.Printf("New items from feed %v\n", nextFeed.Name)
-
 	for _, item := range rss.Channel.Item {
-		fmt.Printf("   %v\n", item.Title)
+
+		publishedAt, err := parseTime(item.PubDate)
+		if err != nil {
+			log.Printf("Failed to parse published date for post %s: %v", item.Title, err)
+		}
+
+		params := database.CreatePostParams{
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: sql.NullString{String: item.Description, Valid: item.Description != ""},
+			PublishedAt: sql.NullTime{Time: publishedAt, Valid: !publishedAt.IsZero()},
+			FeedID:      nextFeed.ID,
+		}
+
+		_, err = s.db.CreatePost(ctx, params)
+
+		if err != nil {
+			if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "already exists") {
+				continue
+			}
+
+			log.Printf("Failed to create post %s: %v", item.Title, err)
+		}
 	}
 
 	return nil
+}
+
+func handlerBrowse(s *state, cmd command, user database.User) error {
+
+	// Parse and validate the limit argument
+	limit := 2 // default value
+	if len(cmd.Args) > 0 {
+		parsedLimit, err := strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return fmt.Errorf("limit must be a valid integer, got: %s", cmd.Args[0])
+		}
+		if parsedLimit <= 0 {
+			return fmt.Errorf("limit must be a positive integer, got: %d", parsedLimit)
+		}
+		limit = parsedLimit
+	}
+
+	// Also check for too many arguments
+	if len(cmd.Args) > 1 {
+		return fmt.Errorf("browse command takes at most 1 argument (limit), got %d", len(cmd.Args))
+	}
+
+	ctx := context.Background()
+
+	params := database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limit),
+	}
+
+	posts, err := s.db.GetPostsForUser(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	if len(posts) == 0 {
+		fmt.Println("No posts found. Try following some feeds first!")
+		return nil
+	}
+
+	fmt.Printf("Found %d posts:\n\n", len(posts))
+
+	for _, post := range posts {
+		fmt.Printf("Title: %s\n", post.Title)
+		fmt.Printf("URL: %s\n", post.Url)
+		if post.Description.Valid && post.Description.String != "" {
+			fmt.Printf("Description: %s\n", post.Description.String)
+		}
+		fmt.Printf("Feed: %s\n", post.FeedName)
+		if post.PublishedAt.Valid {
+			fmt.Printf("Published: %s\n", post.PublishedAt.Time.Format("2006-01-02 15:04"))
+		}
+		fmt.Println("---")
+	}
+
+	return nil
+
 }
