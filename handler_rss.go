@@ -83,7 +83,9 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 
 	req.Header.Set("User-Agent", "gator")
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -259,6 +261,8 @@ func scrapeFeeds(s *state) error {
 		return fmt.Errorf("failed to mark as fetched feed %v: %w", nextFeed.Name, err)
 	}
 
+	fmt.Printf("Fetching feed: %s\n", nextFeed.Url)
+
 	rss, err := fetchFeed(ctx, nextFeed.Url)
 	if err != nil {
 		return fmt.Errorf("failed to fetch feed %v from %v: %w", nextFeed.Name, nextFeed.Url, err)
@@ -344,6 +348,25 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 		}
 		fmt.Println("---")
 	}
+
+	return nil
+
+}
+
+func handlerRemoveFeed(s *state, cmd command) error {
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("removefeed command takes at most 1 argument (limit), got %d", len(cmd.Args))
+	}
+
+	url := cmd.Args[0]
+	ctx := context.Background()
+	err := s.db.DeleteFeed(ctx, url)
+
+	if err != nil {
+		return fmt.Errorf("couldn't delete feed: %v", err)
+	}
+
+	fmt.Printf("Successfully deleted feed with url %v\n", url)
 
 	return nil
 
