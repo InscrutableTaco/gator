@@ -55,7 +55,7 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 
 func handlerAgg(s *state, cmd command) error {
 	if len(cmd.Args) != 1 {
-		return fmt.Errorf("usage: agg <time_between_reqs>")
+		return fmt.Errorf("usage: agg <interval>")
 	}
 
 	timeBetweenRequests, err := time.ParseDuration(cmd.Args[0])
