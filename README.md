@@ -1,49 +1,62 @@
 # gator
 
+## Description
+
 Gator is a CLI-based RSS feed aggregator.
 
-Requirements: Postgres, Go
+## Requirements
 
-Instructions:
+Postgres, Go
 
-1) To install: Place in desired folder, then open your command line interface of choice and type: `go install gator`
+## Installation
 
-2) Once you have installed Gator, you'll want to set up a config file. Create a file called `.gatorconfig.json` in the same folder and copy and paste the following: `{"db_url": "postgres://example"}`. Then save the file.
+1) Clone this repository to your desired folder
+2) Navigate to the project directory in your terminal
+3) Run: `go install .` to install the gator CLI globally
 
-3) You are now ready to run the program using the syntax `gator <command> <param(s)>`. The first command you'll want to run is the `register` command to register yourself as a new user.
+## Configuration
 
-Full Command List:
+Create a file called `.gatorconfig.json` in your home directory with the following content:
 
-`register` <name>
-Registers a new user with the name parameter.
+```json
+{"db_url": "postgres://username:password@localhost/database_name?sslmode=disable"}
+```
 
-`reset`
-Resets the database. Use with Caution!
+## Usage
 
-`users`
-Lists all users in the database.
+To interact with the program, type `gator <command> <param(s)>`. The first command you'll want to run is the `register` command to register yourself as a new user. See below for a full list of available commands.
 
-`agg` <interval>
-Run this command to update database feeds every time <interval>, where <interval> is a duration expressed in a format like "30s" (30 seconds) or "1m20s" (1 minute and 20 seconds).
-This command will run indefinitely until the terminal window is closed or the process is aborted via `Ctrl-x`. Open a new terminal window to continue interacting with the program while it is running.
+### Quick Start
 
-`addfeed` <name> <url>
-Adds a new feed to the database and follows it for the current user.
+1. Register: `gator register your_name`
+2. Add a feed: `gator addfeed "Tech News" https://example.com/feed.xml`
+3. Start aggregating: `gator agg 1m`
+4. Browse posts: `gator browse 10`
 
-`feeds`
-Lists all the feeds in the database.
+### Commands
 
-`follow` <url>
-Creates a feed follow for the current user for the specified url, if it exists in the database (If it doesn't, use `addfeed` instead).
+#### User Management
 
-`following`
-Lists all feeds followed by the current user.
+- **`gator register <name>`** - Registers a new user
+- **`gator users`** - Lists all users
 
-`unfollow` <url>
-Removes the feed follow for the current user for the specified url.
+#### Feed Management
 
-`browse` <number>
-Displays the <number> most recent posts from feeds belonging to the current user.
+- **`gator addfeed <name> <url>`** - Add and follow a new feed
+- **`gator feeds`** - List all feeds
+- **`gator follow <url>`** - Follow an existing feed
+- **`gator unfollow <url>`** - Unfollow a feed
+- **`gator removefeed <url>`** - Remove a feed
+- **`gator following`** - List feeds followed by current user
 
-`removefeed` <url>
-Removes the feed for the specified url from the database.
+#### Aggregation, Browsing
+
+- **`gator agg <time interval>`** - Continuously fetch from feeds on an interval
+  - Format as any combination of hours minutes and seconds, e.g. `60s`, `5m`, `2h10m30s`, etc.
+  - This will run indefinitely until the window is closed or process is aborted via `Ctrl-x`
+  - Open a new window to continue interacting with the program
+- **`gator browse <number of posts>`** - Display most recent `number` posts for current user
+
+#### Database
+
+- **`gator reset`** Remove all data and restore program to its original state (Use with caution!)
